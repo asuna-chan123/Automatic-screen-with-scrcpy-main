@@ -1,0 +1,9 @@
+# Visual Studio
+.vs/
+[Bb]in/
+[Oo]bj/
+*.user
+*.suo
+
+# Ignore local config
+appsettings.Development.json

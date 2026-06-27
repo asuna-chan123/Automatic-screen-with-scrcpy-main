@@ -46,6 +46,8 @@ export default function App() {
   
   const [isConnectingIp, setIsConnectingIp] = useState(false);
   const [connectIpError, setConnectIpError] = useState("");
+  const [operatingDeviceId, setOperatingDeviceId] = useState<string | null>(null);
+  const [screenLaunched, setScreenLaunched] = useState<Record<string, boolean>>({});
 
   const pollInterval = useRef<number | null>(null);
 
@@ -131,6 +133,7 @@ export default function App() {
   };
 
   const handleConnect = async (device: DeviceData) => {
+    setOperatingDeviceId(device.id);
     if (!device.isConnected) {
       const [ip, port] = device.id.split(":");
       try {
@@ -141,11 +144,30 @@ export default function App() {
     } else {
       try {
         await invoke("launch_scrcpy", { id: device.id, turnScreenOff: device.turnScreenOff });
+        setScreenLaunched(prev => ({ ...prev, [device.id]: true }));
       } catch (e) {
         alert(e);
       }
     }
     pollDevices();
+    setOperatingDeviceId(null);
+  };
+
+  const handleDisconnect = async (device: DeviceData) => {
+    setOperatingDeviceId(device.id);
+    try {
+      await invoke("disconnect_device", { id: device.id });
+      setScreenLaunched(prev => {
+        const next = { ...prev };
+        delete next[device.id];
+        return next;
+      });
+      pollDevices();
+    } catch (e) {
+      alert("Disconnect failed: " + e);
+    } finally {
+      setOperatingDeviceId(null);
+    }
   };
 
   const handleConnectNewIp = async () => {
@@ -309,19 +331,59 @@ export default function App() {
                 </p>
               </div>
               <div className="p-4 border-t border-[#3f3f46] flex gap-2">
-                <button 
-                  onClick={() => handleConnect(device)}
-                  className="flex-1 bg-[#2a2b2f] hover:bg-[#3f3f46] text-white font-bold py-3 uppercase text-xs tracking-widest transition-colors border border-transparent hover:border-gray-500"
-                >
-                  {device.isConnected ? "SCREEN" : "CONNECT"}
-                </button>
+                {device.isConnected ? (
+                  screenLaunched[device.id] && device.id.includes(":") ? (
+                    <button 
+                      onClick={() => handleDisconnect(device)}
+                      disabled={operatingDeviceId === device.id}
+                      className="flex-1 bg-red-500/10 hover:bg-red-500/20 disabled:bg-red-900/10 disabled:text-red-900 disabled:cursor-not-allowed text-red-400 font-bold py-3 uppercase text-xs tracking-widest transition-colors border border-transparent hover:border-red-500/50 flex justify-center items-center gap-2"
+                    >
+                      {operatingDeviceId === device.id ? (
+                        <svg className="animate-spin h-4 w-4 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                      ) : null}
+                      {operatingDeviceId === device.id ? "DISCONNECTING..." : "DISCONNECT"}
+                    </button>
+                  ) : (
+                    <button 
+                      onClick={() => handleConnect(device)}
+                      disabled={operatingDeviceId === device.id}
+                      className="flex-1 bg-[#2a2b2f] hover:bg-[#3f3f46] disabled:bg-[#3f3f46] disabled:text-gray-400 disabled:cursor-not-allowed text-white font-bold py-3 uppercase text-xs tracking-widest transition-colors border border-transparent hover:border-gray-500 flex justify-center items-center gap-2"
+                    >
+                      {operatingDeviceId === device.id ? (
+                        <svg className="animate-spin h-4 w-4 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                      ) : null}
+                      {operatingDeviceId === device.id ? "OPENING..." : "SCREEN"}
+                    </button>
+                  )
+                ) : (
+                  <button 
+                    onClick={() => handleConnect(device)}
+                    disabled={operatingDeviceId === device.id}
+                    className="flex-1 bg-[#2a2b2f] hover:bg-[#3f3f46] disabled:bg-[#3f3f46] disabled:text-gray-400 disabled:cursor-not-allowed text-white font-bold py-3 uppercase text-xs tracking-widest transition-colors border border-transparent hover:border-gray-500 flex justify-center items-center gap-2"
+                  >
+                    {operatingDeviceId === device.id ? (
+                      <svg className="animate-spin h-4 w-4 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                    ) : null}
+                    {operatingDeviceId === device.id ? "CONNECTING..." : "CONNECT"}
+                  </button>
+                )}
+                
                 <button 
                   onClick={() => {
                     setEditingDevice(device);
                     setEditName(device.name);
                     setEditTurnScreenOff(device.turnScreenOff);
                   }}
-                  className="px-4 bg-[#2a2b2f] hover:bg-[#3f3f46] text-gray-300 font-bold uppercase text-xs tracking-widest transition-colors border border-transparent hover:border-gray-500 flex items-center justify-center"
+                  className="px-3 bg-[#2a2b2f] hover:bg-[#3f3f46] text-gray-300 font-bold uppercase text-xs tracking-widest transition-colors border border-transparent hover:border-gray-500 flex items-center justify-center"
                 >
                   EDIT
                 </button>
